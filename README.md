@@ -10,7 +10,7 @@ The data used in this project comes from the UCR/UEA archive.
 
 The code is divided as follows:
 
-The [main.py](#https://github.com/VIVIANKERUBO/MixUp/blob/main/main.py) python file contains the necessary code to run an experiement.
+The [main.py](https://github.com/VIVIANKERUBO/MixUp/blob/main/main.py) python file contains the necessary code to run an experiement.
 The utils folder contains the necessary functions to read the datasets
 The classifiers folder contains two python files: (1) inception.py contains the inception network; (2) nne.py contains the code that ensembles a set of Inception networks.
 In the notebooks there is a code Inception_time_clone.ipynb that can help to run the Inception Time
