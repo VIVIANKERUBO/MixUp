@@ -19,7 +19,7 @@ In the notebooks there is a code Inception_time_clone.ipynb that can help to run
 
 You should first consider changing the following [line](https://github.com/VIVIANKERUBO/MixUp/blob/main/main.py#L218). This is the root file of everything (data and results) let's call it root_dir.
 
-After that you should create a folder called archives inside your root_dir, which should contain the folder UCR_TS_Archive_2015. The latter will contain a folder for each dataset called dataset_name, which can be downloaded from this website.
+After that you should create a folder called archives inside your root_dir, which should contain the folder UCR_TS_Archive_2015. The latter will contain a folder for each dataset called dataset_name, which can be downloaded from this [website](https://www.cs.ucr.edu/~eamonn/time_series_data/).
 
-The names of the datasets are present here. You can comment this line to run the experiments on all datasets.
+
 
