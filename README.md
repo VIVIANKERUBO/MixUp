@@ -17,7 +17,7 @@ In the notebooks there is a code Inception_time_clone.ipynb that can help to run
 
 # Running the code on PC
 
-You should first consider changing the following line. This is the root file of everything (data and results) let's call it root_dir.
+You should first consider changing the following [line] #(https://github.com/VIVIANKERUBO/MixUp/blob/main/main.py#L18). This is the root file of everything (data and results) let's call it root_dir.
 
 After that you should create a folder called archives inside your root_dir, which should contain the folder UCR_TS_Archive_2015. The latter will contain a folder for each dataset called dataset_name, which can be downloaded from this website.
 
