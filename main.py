@@ -203,7 +203,7 @@ def training(logdir,model,test_loss_min_input,checkpoint_path, best_model_path):
 def get_model(modelname, num_classes, input_dim, num_layers, hidden_dims, device):
     #modelname = modelname.lower() #make case invariant
     if modelname == "inception":
-        model = inception.InceptionTime(num_classes=nb_classes,input_dim=1, num_layers=6, hidden_dims=32).to(device)
+        model = inception.InceptionTime(num_classes=nb_classes,input_dim=1, num_layers=6, hidden_dims=128).to(device)
     elif modelname == "nne":
         
         model = nne.NNE(output_directory,num_classes, input_dim, num_layers, hidden_dims)
