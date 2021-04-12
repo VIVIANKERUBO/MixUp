@@ -148,8 +148,8 @@ def training(logdir,model,test_loss_min_input,checkpoint_path, best_model_path):
   global test_loss_min
   device = torch.device("cpu")
   criterion = torch.nn.CrossEntropyLoss(reduction="mean")
-  optimizer = Adam(model.parameters(), lr= 0.0001)
-  scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, threshold=0.01, patience=50)
+  optimizer = Adam(model.parameters(), lr= 0.001)
+  scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, threshold=0.01, patience=50, min_lr=0.0001)
   epochs = 1500
             
   #logdir= temp_output_directory
