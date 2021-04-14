@@ -249,7 +249,7 @@ def get_model(modelname, num_classes, input_dim, num_layers, hidden_dims, device
 
 
 ############################################### main
-def experiment(use_mixup, train_mixup):
+def experiment(use_mixup):
     root_dir = '/content/gdrive/MyDrive/Inception_time/InceptionTime/archives/UCR_TS_Archive_2015'
     xps = ['use_bottleneck', 'use_residual', 'nb_filters', 'depth',
        'kernel_size', 'batch_size']
@@ -298,7 +298,7 @@ def experiment(use_mixup, train_mixup):
             best_model_path = temp_output_directory + "/" + "best_model.pt"
             model = get_model(modelname = classifier_name,num_classes=nb_classes,input_dim=1, num_layers=6, hidden_dims= 128, device = device)
             #training(temp_output_directory, model, np.inf,checkpoint_path, best_model_path)
-            if train_mixup:
+            if use_mixup:
               training(temp_output_directory, model, np.inf,checkpoint_path, best_model_path,train_dataloader,
               test_dataloader,True)
             else:
