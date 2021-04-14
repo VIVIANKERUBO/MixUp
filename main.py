@@ -249,7 +249,7 @@ def get_model(modelname, num_classes, input_dim, num_layers, hidden_dims, device
 
 
 ############################################### main
-def experiment(use_mixup):
+def experiment(mixup):
     root_dir = '/content/gdrive/MyDrive/Inception_time/InceptionTime/archives/UCR_TS_Archive_2015'
     xps = ['use_bottleneck', 'use_residual', 'nb_filters', 'depth',
        'kernel_size', 'batch_size']
@@ -273,7 +273,7 @@ def experiment(use_mixup):
 
         
         #tmp_output_directory = root_dir + '/results1-test-m/' + classifier_name + '/' + archive_name + trr + '/'
-        if use_mixup:
+        if mixup:
           tmp_output_directory = root_dir + '/results-test-mixup/' + classifier_name + '/' + archive_name + trr + '/'
         else:
           tmp_output_directory = root_dir + '/results-test/' + classifier_name + '/' + archive_name + trr + '/'
@@ -298,7 +298,7 @@ def experiment(use_mixup):
             best_model_path = temp_output_directory + "/" + "best_model.pt"
             model = get_model(modelname = classifier_name,num_classes=nb_classes,input_dim=1, num_layers=6, hidden_dims= 128, device = device)
             #training(temp_output_directory, model, np.inf,checkpoint_path, best_model_path)
-            if use_mixup:
+            if args.mixup:
               training(temp_output_directory, model, np.inf,checkpoint_path, best_model_path,train_dataloader,
               test_dataloader,True)
             else:
@@ -307,9 +307,25 @@ def experiment(use_mixup):
            
         
         
-if __name__ == "__main__":
+def parse_args():
+    
+    parser = argparse.ArgumentParser(description='Train an evaluate augmented UCR data using Mixup' 
+                                                 'and non-augmented data with Inception time and nne models'
+                                                 'This script trains a model on training dataset'
+                                                 'partition, evaluates performance on a validation or evaluation partition'
+                                                 'and stores progress and model paths in --logdir.')
+    parser.add_argument(
+        '-m','--mixup', type=bool, default="True", help='select whether to use mixup or not.')
 
-    experiment(False, False) # train without mixup set as False, train with mixup set as True 
+    args = parser.parse_args()
+
+    return args
+        
+if __name__ == "__main__":
+    
+    args = parse_args()
+
+    experiment(args) 
            
               
         ############### run the ensembling of these iterations of Inception ################### 
