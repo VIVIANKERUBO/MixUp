@@ -298,7 +298,7 @@ def experiment(mixup):
             best_model_path = temp_output_directory + "/" + "best_model.pt"
             model = get_model(modelname = classifier_name,num_classes=nb_classes,input_dim=1, num_layers=6, hidden_dims= 128, device = device)
             #training(temp_output_directory, model, np.inf,checkpoint_path, best_model_path)
-            if args.mixup:
+            if mixup:
               training(temp_output_directory, model, np.inf,checkpoint_path, best_model_path,train_dataloader,
               test_dataloader,True)
             else:
@@ -315,7 +315,7 @@ def parse_args():
                                                  'partition, evaluates performance on a validation or evaluation partition'
                                                  'and stores progress and model paths in --logdir.')
     parser.add_argument(
-        '-m','--mixup', type=bool, default="True", help='select whether to use mixup or not.')
+        '-m','--mixup', default="False", action="store",type=lambda x: (str(x).lower() == 'true'),help='select whether to use mixup or not.')
 
     args = parser.parse_args()
 
@@ -325,7 +325,7 @@ if __name__ == "__main__":
     
     args = parse_args()
 
-    experiment(args) 
+    experiment(args.mixup)
            
               
         ############### run the ensembling of these iterations of Inception ################### 
