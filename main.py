@@ -70,8 +70,8 @@ def prepare_data(datasets_dict, dataset_name):
     
     train_dataset = torch.utils.data.TensorDataset(x_train, y_train)
     test_dataset = torch.utils.data.TensorDataset(x_test, y_true)
-    train_dataloader = DataLoader(train_dataset, batch_size=int(min(x_train.shape[0] / 10, 16)), shuffle=True, num_workers= 0)
-    test_dataloader = DataLoader(test_dataset, batch_size=int(min(x_train.shape[0] / 10, 16)), shuffle=False, num_workers= 0)
+    train_dataloader = DataLoader(train_dataset, batch_size= 64, shuffle=True, num_workers= 0)
+    test_dataloader = DataLoader(test_dataset, batch_size= 64, shuffle=False, num_workers= 0)
    
     return train_dataloader, test_dataloader, nb_classes, y_true, enc
 
