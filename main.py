@@ -96,7 +96,7 @@ def mixup_data(x, y, alpha=0.4, use_cuda=False):
     
     return mixed_x, mixed_y         
 
-def train(model, optimizer, criterion, dataloader, device):
+def train(model, optimizer, criterion, dataloader, device, use_mixup):
 
         
         model.train()
@@ -108,26 +108,8 @@ def train(model, optimizer, criterion, dataloader, device):
           for idx, batch in iterator:
             x, y = batch
             x = x.float()
-            x, y = x.to(device), y.to(device)
-            output = model.forward(x)
-            loss =  criterion(output, torch.max(y,1)[1])
-            loss.backward()
-            optimizer.step()
-            losses.append(loss)
-        return torch.stack(losses)
-
-def train_mixup(model, optimizer, criterion, dataloader, device):
-
-        
-        model.train()
-        losses = list()
-        start_time = time.time()
-        optimizer.zero_grad()
-        with tqdm(enumerate(dataloader), total=len(dataloader), leave=True) as iterator:
-          for idx, batch in iterator:
-            x, y = batch
-            x, y = mixup_data(x, y, alpha=0.4)
-            x = x.float()
+            if use_mixup:
+              x, y = mixup_data(x, y, alpha=0.4)
             x, y = x.to(device), y.to(device)
             output = model.forward(x)
             loss =  criterion(output, torch.max(y,1)[1])
@@ -196,9 +178,9 @@ def training(logdir,model,test_loss_min_input,checkpoint_path, best_model_path,t
 
     #train_loss = train(model, optimizer, criterion,x_train, y_train, x_test,y_test,device)
     if apply_mixup:
-      train_loss = train_mixup(model, optimizer, criterion,train_dataloader,device)
+      train_loss = train(model, optimizer, criterion,train_dataloader,device, True)
     else:
-      train_loss = train(model, optimizer, criterion,train_dataloader,device)
+      train_loss = train(model, optimizer, criterion,train_dataloader,device, False)
     test_loss, y_true_, y_pred, _ = test(model,criterion, x_test, y_true, x_train, y_train, y_test,device)
     scores = metrics(y_true_.cpu(), y_pred.cpu())
     scores_msg = ", ".join([f"{k}={v:.2f}" for (k, v) in scores.items()])
