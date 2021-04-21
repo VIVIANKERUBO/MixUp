@@ -103,14 +103,13 @@ def train(model, optimizer, criterion, dataloader, device, use_mixup):
         losses = list()
         start_time = time.time()
         optimizer.zero_grad()
-        #x, y = mixup_data(x_train, y_train, 0.4,use_cuda)
         with tqdm(enumerate(dataloader), total=len(dataloader), leave=True) as iterator:
           for idx, batch in iterator:
             x, y = batch
             x = x.float()
+            x, y = x.to(device), y.to(device)
             if use_mixup:
               x, y = mixup_data(x, y, alpha=0.4)
-            x, y = x.to(device), y.to(device)
             output = model.forward(x)
             loss =  criterion(output, torch.max(y,1)[1])
             loss.backward()
@@ -176,11 +175,10 @@ def training(logdir,model,test_loss_min_input,checkpoint_path, best_model_path,t
   test_loss_min = test_loss_min_input
   for epoch in range(epochs):
 
-    #train_loss = train(model, optimizer, criterion,x_train, y_train, x_test,y_test,device)
+    
     if apply_mixup:
       train_loss = train(model, optimizer, criterion,train_dataloader,device, True)
-    else:
-      train_loss = train(model, optimizer, criterion,train_dataloader,device, False)
+    train_loss = train(model, optimizer, criterion,train_dataloader,device, False)
     test_loss, y_true_, y_pred, _ = test(model,criterion, x_test, y_true, x_train, y_train, y_test,device)
     scores = metrics(y_true_.cpu(), y_pred.cpu())
     scores_msg = ", ".join([f"{k}={v:.2f}" for (k, v) in scores.items()])
@@ -233,10 +231,7 @@ def get_model(modelname, num_classes, input_dim, num_layers, hidden_dims, device
 ############################################### main
 def experiment(mixup):
     root_dir = '/content/gdrive/MyDrive/Inception_time/InceptionTime/archives/UCR_TS_Archive_2015'
-    xps = ['use_bottleneck', 'use_residual', 'nb_filters', 'depth',
-       'kernel_size', 'batch_size']
-
-    #if sys.argv[1] == 'InceptionTime':
+    
     # run nb_iter_ iterations of Inception on the whole TSC archive  
     classifier_name = 'inception'
     archive_name = ARCHIVE_NAMES[0]
@@ -254,7 +249,7 @@ def experiment(mixup):
             trr = '_itr_' + str(iter)
 
         
-        #tmp_output_directory = root_dir + '/results1-test-m/' + classifier_name + '/' + archive_name + trr + '/'
+        
         if mixup:
           tmp_output_directory = root_dir + '/results-test-mixup/' + classifier_name + '/' + archive_name + trr + '/'
         else:
@@ -263,7 +258,7 @@ def experiment(mixup):
         for dataset_name in utils.constants.dataset_names_for_archive[archive_name]:
             print('\t\t\tdataset_name: ', dataset_name)
 
-            #x_train, y_train, x_test, y_test, y_true, nb_classes, y_true_train, enc = prepare_data()
+            
             train_dataloader, test_dataloader, nb_classes, y_true, enc = prepare_data(datasets_dict, dataset_name)
             
 
@@ -279,13 +274,11 @@ def experiment(mixup):
             checkpoint_path = temp_output_directory + "/" + "current_checkpoint.pt"
             best_model_path = temp_output_directory + "/" + "best_model.pt"
             model = get_model(modelname = classifier_name,num_classes=nb_classes,input_dim=1, num_layers=6, hidden_dims= 128, device = device)
-            #training(temp_output_directory, model, np.inf,checkpoint_path, best_model_path)
-            if mixup:
-              training(temp_output_directory, model, np.inf,checkpoint_path, best_model_path,train_dataloader,
-              test_dataloader,True)
-            else:
-              training(temp_output_directory, model, np.inf,checkpoint_path, best_model_path,train_dataloader,
-              test_dataloader, False)
+            
+            
+            training(temp_output_directory, model, np.inf,checkpoint_path, best_model_path,train_dataloader,
+            test_dataloader,mixup)
+   
            
         
         
@@ -312,33 +305,101 @@ if __name__ == "__main__":
               
         ############### run the ensembling of these iterations of Inception ################### 
         '''
-        classifier_name2 = 'nne'
-        folder = 'inception'
+        #  ensemble of inception time       
+    classifier_name = 'inception'
 
-        datasets_dict = read_all_datasets(root_dir, archive_name)
+    datasets_dict = read_all_datasets(root_dir, archive_name)
 
-        tmp_output_directory = root_dir + '/results1-test-m/' + classifier_name2 + '/' + archive_name + '/'
-        folder = "inception"
-        tmp = root_dir + '/results1-test-m/' + folder + '/' + archive_name + '/'
+    for iter in range(nb_iter_):
+        print('\t\titer', iter)
 
-        for dataset_name in utils.constants.dataset_names_for_archive[archive_name]:
-            print('\t\t\tdataset_name: ', dataset_name)
+        trr = ''
+        if iter != 0:
+            trr = '_itr_' + str(iter)
+  
 
-            x_train, y_train, x_test, y_test, y_true, nb_classes, y_true_train, enc = prepare_data()
-            
-            #output_directory = tmp_output_directory + dataset_name + '/'
-            output_directory1 = tmp + dataset_name + '/'
+    if mixup:
+      print('this is mixup directory')
+      tmp_output_directory = root_dir + '/results-test-mixup/' + classifier_name + '/' + archive_name + trr + '/'
+      #tmp_output_directory = root_dir + '/results-test-mixup/' + classifier_name + '/' + archive_name + '/'
+      print(tmp_output_directory)
+    else:
+      print('this is not mixup directory')
+      tmp_output_directory = root_dir + '/results-test/' + classifier_name + '/' + archive_name + trr + '/'
+      #tmp_output_directory = root_dir + '/results-test/' + classifier_name + '/' + archive_name + '/'
+    
+    for dataset_name in utils.constants.dataset_names_for_archive[archive_name]:
+          
+      print('\t\t\tdataset_name: ', dataset_name)
 
-            #temp_output_directory = create_directory(output_directory)
-            temp_output_dir = create_directory(output_directory1)
-            if temp_output_dir is None:
-                print('Already_done', tmp_output_directory, dataset_name)
-                continue
-            
+      train_dataloader, test_dataloader, nb_classes, y_true, enc = prepare_data(datasets_dict, dataset_name)
+        
 
-            model = get_model(classifier_name2, nb_classes, input_dim = 1, num_layers = 6, hidden_dims = 32, device = device)
-            ckp_path = temp_output_dir + "/" + "best_model.pt"
-            model.fit(x_train, y_train, x_test, y_test, y_true, nb_classes,ckp_path,temp_output_dir)
+      output_directory = tmp_output_directory + dataset_name + '/'
+
+      import glob
+
+      #for layers in glob.glob(tmp_output_directory + "/" + "*.shp" ):
+      for layers in glob.glob(output_directory ):
+          print(layers)
+
+        
+      temp_output_directory = output_directory
+
+      ckp_path = temp_output_directory + "/" + "current_checkpoint_train.pt"
+
+          
+          # load the saved inception model
+      saved_model = model, optimizer, start_epoch, train_loss_min = load_ckp(ckp_path, model, optimizer)
+      models = []
+      num_models = 5
+      for m in range(num_models):
+        models.append(saved_model)
+        
+      for batch_idx, (inputs, targets) in enumerate(test_dataloader):
+        x_test = inputs 
+        y_test = targets
+
+        
+      y_pred = torch.zeros(y_test.shape)
+
+      ll = 0
+      for m_idx, model in enumerate(models):
+          
+
+        test_loss, y_true_, y_pred_, _ = test(model,criterion, test_dataloader,device)
+        scores = metrics(y_true_.cpu(), y_pred.cpu())
+          
+        predictions_file_name = output_directory + 'y_pred.npy'
+            # check if predictions already made
+        if check_if_file_exits(predictions_file_name):
+            # then load only the predictions from the file
+          curr_y_pred = np.load(predictions_file_name)
+        else:
+              # then compute the predictions
+          curr_y_pred = y_pred_
+
+        np.save(predictions_file_name, curr_y_pred)
+
+        y_pred = y_pred + curr_y_pred
+
+        ll += 1
+
+          # average predictions
+      y_pred = y_pred / ll
+
+        # save predictions
+      np.save(output_directory + 'y_pred.npy', y_pred)
+
+        # convert the predicted from binary to integer
+      y_pred = np.argmax(y_pred, axis=1)
+
+
+      df_metrics = metrics(y_true, y_pred)
+
+      df_metrics.to_csv(output_directory + 'df_metrics.csv', index=False)
+      print('\t\t\t\tDONE')
+
             '''
 
           
