@@ -69,7 +69,8 @@ def prepare_data(datasets_dict, dataset_name):
     
     
     train_dataset = torch.utils.data.TensorDataset(x_train, y_train)
-    test_dataset = torch.utils.data.TensorDataset(x_test, y_true)
+    #test_dataset = torch.utils.data.TensorDataset(x_test, y_true)
+    test_dataset = torch.utils.data.TensorDataset(x_test, y_true, y_test)
     train_dataloader = DataLoader(train_dataset, batch_size= 64, shuffle=True, num_workers= 0)
     test_dataloader = DataLoader(test_dataset, batch_size= 64, shuffle=False, num_workers= 0)
    
@@ -128,7 +129,7 @@ def test(model,criterion, dataloader,device):
         start_time = time.time()
         with tqdm(enumerate(dataloader), total=len(dataloader), leave=True) as iterator:
             for idx, batch in iterator:
-              x_test, y_true = batch
+              x_test, y_true, _ = batch
               x_test = x_test.float()
               y_pred = model.forward(x_test.to(device))
               loss = criterion(y_pred, y_true.to(device))
@@ -279,6 +280,27 @@ def experiment(mixup):
             training(temp_output_directory, model, np.inf,checkpoint_path, best_model_path,train_dataloader,
             test_dataloader,mixup)
    
+
+        ############### run the ensembling of these iterations of Inception ################### 
+        classifier_name = 'nne'
+
+        datasets_dict = read_all_datasets(root_dir, archive_name)
+
+        if mixup:
+            tmp_output_directory = root_dir + '/results-test-mixup/' + classifier_name + '/' + archive_name + '/'
+        else:
+            tmp_output_directory = root_dir + '/results-test/' + classifier_name + '/' + archive_name + '/'
+
+        for dataset_name in utils.constants.dataset_names_for_archive[archive_name]:
+            print('\t\t\tdataset_name: ', dataset_name)
+
+            train_dataloader, test_dataloader, nb_classes, y_true, enc = prepare_data(datasets_dict, dataset_name)
+
+            output_directory = tmp_output_directory + dataset_name + '/'
+            from classifiers.nne import NNE
+
+            model = NNE(output_directory)
+            model.fit(test_dataloader, nb_classes,output_directory)
            
         
         
@@ -303,104 +325,8 @@ if __name__ == "__main__":
     experiment(args.mixup)
            
               
-        ############### run the ensembling of these iterations of Inception ################### 
-        '''
-        #  ensemble of inception time       
-    classifier_name = 'inception'
-
-    datasets_dict = read_all_datasets(root_dir, archive_name)
-
-    for iter in range(nb_iter_):
-        print('\t\titer', iter)
-
-        trr = ''
-        if iter != 0:
-            trr = '_itr_' + str(iter)
-  
-
-    if mixup:
-      print('this is mixup directory')
-      tmp_output_directory = root_dir + '/results-test-mixup/' + classifier_name + '/' + archive_name + trr + '/'
-      #tmp_output_directory = root_dir + '/results-test-mixup/' + classifier_name + '/' + archive_name + '/'
-      print(tmp_output_directory)
-    else:
-      print('this is not mixup directory')
-      tmp_output_directory = root_dir + '/results-test/' + classifier_name + '/' + archive_name + trr + '/'
-      #tmp_output_directory = root_dir + '/results-test/' + classifier_name + '/' + archive_name + '/'
-    
-    for dataset_name in utils.constants.dataset_names_for_archive[archive_name]:
-          
-      print('\t\t\tdataset_name: ', dataset_name)
-
-      train_dataloader, test_dataloader, nb_classes, y_true, enc = prepare_data(datasets_dict, dataset_name)
+       
         
-
-      output_directory = tmp_output_directory + dataset_name + '/'
-
-      import glob
-
-      #for layers in glob.glob(tmp_output_directory + "/" + "*.shp" ):
-      for layers in glob.glob(output_directory ):
-          print(layers)
-
-        
-      temp_output_directory = output_directory
-
-      ckp_path = temp_output_directory + "/" + "current_checkpoint_train.pt"
-
-          
-          # load the saved inception model
-      saved_model = model, optimizer, start_epoch, train_loss_min = load_ckp(ckp_path, model, optimizer)
-      models = []
-      num_models = 5
-      for m in range(num_models):
-        models.append(saved_model)
-        
-      for batch_idx, (inputs, targets) in enumerate(test_dataloader):
-        x_test = inputs 
-        y_test = targets
-
-        
-      y_pred = torch.zeros(y_test.shape)
-
-      ll = 0
-      for m_idx, model in enumerate(models):
-          
-
-        test_loss, y_true_, y_pred_, _ = test(model,criterion, test_dataloader,device)
-        scores = metrics(y_true_.cpu(), y_pred.cpu())
-          
-        predictions_file_name = output_directory + 'y_pred.npy'
-            # check if predictions already made
-        if check_if_file_exits(predictions_file_name):
-            # then load only the predictions from the file
-          curr_y_pred = np.load(predictions_file_name)
-        else:
-              # then compute the predictions
-          curr_y_pred = y_pred_
-
-        np.save(predictions_file_name, curr_y_pred)
-
-        y_pred = y_pred + curr_y_pred
-
-        ll += 1
-
-          # average predictions
-      y_pred = y_pred / ll
-
-        # save predictions
-      np.save(output_directory + 'y_pred.npy', y_pred)
-
-        # convert the predicted from binary to integer
-      y_pred = np.argmax(y_pred, axis=1)
-
-
-      df_metrics = metrics(y_true, y_pred)
-
-      df_metrics.to_csv(output_directory + 'df_metrics.csv', index=False)
-      print('\t\t\t\tDONE')
-
-            '''
 
           
 
