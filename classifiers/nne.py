@@ -1,48 +1,25 @@
 import keras
+import pandas as pd
 import numpy as np
+import classifiers
+from classifiers import inception
 from utils.utils import calculate_metrics
 from utils.utils import metrics
 from utils.utils import create_directory
 from utils.utils import check_if_file_exits
 import gc
+import os
 import torch
 from torch.optim import Adam
 from utils.constants import UNIVARIATE_ARCHIVE_NAMES  as ARCHIVE_NAMES
 import time
 
-#loading function
-def load_ckp(checkpoint_fpath, model, optimizer):
-    """
-    checkpoint_path: path to save checkpoint
-    model: model that we want to load checkpoint parameters into       
-    optimizer: optimizer we defined in previous training
-    """
-    # load check point
-    checkpoint = torch.load(checkpoint_fpath)
-    # initialize state_dict from checkpoint to model
-    model.load_state_dict(checkpoint['state_dict'])
-    # initialize optimizer from checkpoint to optimizer
-    optimizer.load_state_dict(checkpoint['optimizer'])
-    # initialize valid_loss_min from checkpoint to valid_loss_min
-    test_loss_min = checkpoint['test_loss_min']
-    # return model, optimizer, epoch value, min validation loss 
-    return model, optimizer, checkpoint['epoch'], test_loss_min.item()
+
+device = torch.device("cpu")
 
 class NNE:
 
-    def create_classifier(self, model_name, num_classes,input_dim, num_layers, hidden_dims, output_directory
-                          ):
-        if self.check_if_match('inception*', model_name):
-            from classifiers import inception
-            return inception.InceptionTime(num_classes,input_dim, num_layers, hidden_dims
-                                                 )
-
-    def check_if_match(self, rex, name2):
-        import re
-        pattern = re.compile(rex)
-        return pattern.match(name2)
-
-    def __init__(self, output_directory, input_shape, nb_classes, verbose=False, nb_iterations=5,
+    def __init__(self, output_directory, nb_iterations=5,
                  clf_name='inception'):
         self.classifiers = [clf_name]
         out_add = ''
@@ -56,18 +33,21 @@ class NNE:
                                                          'nne' + '/' + out_add)
         create_directory(self.output_directory)
         self.dataset_name = output_directory.split('/')[-2]
-        self.verbose = verbose
         self.models_dir = output_directory.replace('nne', 'classifier')
-
-    def fit(self, x_train, y_train, x_test, y_test, y_true, nb_classes,ckp_path, output_directory):
+    
+    def fit(self, test_dataloader, num_classes, output_directory):
         # no training since models are pre-trained
         start_time = time.time()
 
-        y_pred = np.zeros(shape=y_test.shape)
+        for batch_idx, (x_test, y_true, y_test) in enumerate(test_dataloader):
+          
+          
+          y_pred = torch.zeros(y_test.shape)
+          
 
         ll = 0
 
-        # loop through all classifiers
+          # loop through all classifiers
         for model_name in self.classifiers:
             # loop through different initialization of classifiers
             for itr in self.iterations_to_take:
@@ -80,34 +60,30 @@ class NNE:
 
                 curr_dir = self.models_dir.replace('classifier', model_name).replace(
                     self.archive_name, curr_archive_name)
-
-                model = self.create_classifier(model_name, nb_classes, 1, 6, 32,
-                                               curr_dir)
-                # define optimzer
-                optimizer = Adam(model.parameters(), lr=0.001)
+                print('curr_dir',curr_dir)
 
                 # define checkpoint saved path
-                #ckp_path = "./current_checkpoint.pt"
+                ckp_path = curr_dir + "current_checkpoint.pt"
+                print(ckp_path)
 
-                model, optimizer, start_epoch, valid_loss_min = load_ckp(ckp_path, model, optimizer)
-
+                model = inception.InceptionTime(num_classes=num_classes,input_dim=1, num_layers=6, hidden_dims=128).to(device)
                 model.eval()
-
+                checkpoint = torch.load(ckp_path)
+    
+                model.load_state_dict(checkpoint['state_dict']) 
+              
                 with torch.no_grad():
-                  x_test, y_test = x_test.to_device(), y_test.to_device()
-                  output = model(x_test)
+                  x_test = x_test.float()
+                  y_pred_ = model.forward(x_test.to(device))
                   predictions_file_name = curr_dir + 'y_pred.npy'
-                  # check if predictions already made
-                  if check_if_file_exits(predictions_file_name):
-                    # then load only the predictions from the file
-                    curr_y_pred = np.load(predictions_file_name)
-                  else:
-                    # then compute the predictions
-                    curr_y_pred = output
+    
+                  curr_y_pred = y_pred_
+                  
 
-                  np.save(predictions_file_name, curr_y_pred)
+                np.save(predictions_file_name, curr_y_pred)
 
                 y_pred = y_pred + curr_y_pred
+               
 
                 ll += 1
 
@@ -115,17 +91,17 @@ class NNE:
         y_pred = y_pred / ll
 
         # save predictions
-        np.save(output_directory + 'y_pred.npy', y_pred)
+        #np.save(output_directory + 'y_pred.npy', y_pred)
 
         # convert the predicted from binary to integer
         y_pred = np.argmax(y_pred, axis=1)
 
         duration = time.time() - start_time
 
-        metrics(y_true, y_pred, duration)
+        df_metrics = metrics(y_true, y_pred)
+       
 
-        df_metrics.to_csv(output_directory + 'df_metrics.csv', index=False)
-
-        gc.collect()
-    
-    
+        log_df = pd.DataFrame([df_metrics])
+        
+        df_metrics_dir = os.path.join(self.output_directory, 'df_metrics.csv') 
+        log_df.to_csv(df_metrics_dir)
