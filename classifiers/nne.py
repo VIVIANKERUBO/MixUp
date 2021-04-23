@@ -33,7 +33,7 @@ class NNE:
                                                          'nne' + '/' + out_add)
         create_directory(self.output_directory)
         self.dataset_name = output_directory.split('/')[-2]
-        self.models_dir = output_directory.replace('nne', 'classifier')
+        self.models_dir = output_directory.replace('nne', clf_name)
     
     def fit(self, test_dataloader, num_classes, output_directory):
         # no training since models are pre-trained
