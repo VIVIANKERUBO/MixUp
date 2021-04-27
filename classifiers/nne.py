@@ -67,11 +67,11 @@ class NNE:
                 print(ckp_path)
 
                 model = inception.InceptionTime(num_classes=num_classes,input_dim=1, num_layers=6, hidden_dims=128).to(device)
-                model.eval()
+                
                 checkpoint = torch.load(ckp_path)
     
                 model.load_state_dict(checkpoint['state_dict']) 
-              
+                model.eval()
                 with torch.no_grad():
                   x_test = x_test.float()
                   y_pred_ = model.forward(x_test.to(device))
