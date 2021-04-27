@@ -230,7 +230,9 @@ def get_model(modelname, num_classes, input_dim, num_layers, hidden_dims, device
 
 
 ############################################### main
-def experiment(mixup, partition_id):
+def experiment(mixup, id_partition):
+    
+    id_partition = 5
     root_dir = '/content/gdrive/MyDrive/Inception_time/InceptionTime/archives/UCR_TS_Archive_2015'
     
     # run nb_iter_ iterations of Inception on the whole TSC archive  
@@ -259,9 +261,8 @@ def experiment(mixup, partition_id):
         #for dataset_name in utils.constants.dataset_names_for_archive[archive_name]:
         DATASET_NAMES = utils.constants.dataset_names_for_archive[archive_name]
         n = 5
-        partition_id = [DATASET_NAMES[i:i + n] for i in range(0, len(DATASET_NAMES), n)]
-        for dataset_names in partition_id:
-          for dataset_name in dataset_names:
+        partition_datasets = DATASET_NAMES[id_partition*n:id_partition*(n+1)] 
+          for dataset_name in partition_datasets:
             print('\t\t\tdataset_name: ', dataset_name)
 
             
