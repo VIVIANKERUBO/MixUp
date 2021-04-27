@@ -64,7 +64,7 @@ class NNE:
 
                 # define checkpoint saved path
                 ckp_path = curr_dir + "current_checkpoint.pt"
-                print(ckp_path)
+                
 
                 model = inception.InceptionTime(num_classes=num_classes,input_dim=1, num_layers=6, hidden_dims=128).to(device)
                 
