@@ -230,7 +230,7 @@ def get_model(modelname, num_classes, input_dim, num_layers, hidden_dims, device
 
 
 ############################################### main
-def experiment(mixup):
+def experiment(mixup, partition_id):
     root_dir = '/content/gdrive/MyDrive/Inception_time/InceptionTime/archives/UCR_TS_Archive_2015'
     
     # run nb_iter_ iterations of Inception on the whole TSC archive  
@@ -256,7 +256,12 @@ def experiment(mixup):
         else:
           tmp_output_directory = root_dir + '/results-test/' + classifier_name + '/' + archive_name + trr + '/'
 
-        for dataset_name in utils.constants.dataset_names_for_archive[archive_name]:
+        #for dataset_name in utils.constants.dataset_names_for_archive[archive_name]:
+        DATASET_NAMES = utils.constants.dataset_names_for_archive[archive_name]
+        n = 5
+        partition_id = [DATASET_NAMES[i:i + n] for i in range(0, len(DATASET_NAMES), n)]
+        for dataset_names in partition_id:
+          for dataset_name in dataset_names:
             print('\t\t\tdataset_name: ', dataset_name)
 
             
@@ -313,6 +318,8 @@ def parse_args():
                                                  'and stores progress and model paths in --logdir.')
     parser.add_argument(
         '-m','--mixup', default="False", action="store",type=lambda x: (str(x).lower() == 'true'),help='select whether to use mixup or not.')
+    
+    parser.add_argument('-p','--partition_id', nargs='+',help='select a list of 5 datasets during training 1 sjob')   
 
     args = parser.parse_args()
 
@@ -322,7 +329,7 @@ if __name__ == "__main__":
     
     args = parse_args()
 
-    experiment(args.mixup)
+    experiment(args.mixup,args.partition_id)
            
               
        
