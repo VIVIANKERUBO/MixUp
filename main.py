@@ -11,7 +11,7 @@ from utils.utils import metrics
 import os
 import shutil
 import argparse
-
+from tqdm import tqdm
 import utils
 import numpy as np
 import pandas as pd
@@ -180,7 +180,7 @@ def training(logdir,model,test_loss_min_input,checkpoint_path, best_model_path,t
     if apply_mixup:
       train_loss = train(model, optimizer, criterion,train_dataloader,device, True)
     train_loss = train(model, optimizer, criterion,train_dataloader,device, False)
-    test_loss, y_true_, y_pred, _ = test(model,criterion, x_test, y_true, x_train, y_train, y_test,device)
+    test_loss, y_true_, y_pred, _ = test(model,criterion, test_dataloader,device)
     scores = metrics(y_true_.cpu(), y_pred.cpu())
     scores_msg = ", ".join([f"{k}={v:.2f}" for (k, v) in scores.items()])
     test_loss = test_loss.cpu().detach().numpy()[0]
@@ -219,7 +219,7 @@ def training(logdir,model,test_loss_min_input,checkpoint_path, best_model_path,t
 def get_model(modelname, num_classes, input_dim, num_layers, hidden_dims, device):
     #modelname = modelname.lower() #make case invariant
     if modelname == "inception":
-        model = inception.InceptionTime(num_classes=nb_classes,input_dim=1, num_layers=6, hidden_dims=128).to(device)
+        model = inception.InceptionTime(num_classes=num_classes,input_dim=1, num_layers=6, hidden_dims=128).to(device)
     elif modelname == "nne":
         
         model = nne.NNE(output_directory,num_classes, input_dim, num_layers, hidden_dims)
@@ -254,15 +254,15 @@ def experiment(mixup, id_partition):
         
         
         if mixup:
-          tmp_output_directory = root_dir + '/results-test-mixup/' + classifier_name + '/' + archive_name + trr + '/'
+          tmp_output_directory = root_dir + '/results-mixup/' + classifier_name + '/' + archive_name + trr + '/'
         else:
-          tmp_output_directory = root_dir + '/results-test/' + classifier_name + '/' + archive_name + trr + '/'
+          tmp_output_directory = root_dir + '/results/' + classifier_name + '/' + archive_name + trr + '/'
 
         #for dataset_name in utils.constants.dataset_names_for_archive[archive_name]:
         DATASET_NAMES = utils.constants.dataset_names_for_archive[archive_name]
         n = 5
         partition_datasets = DATASET_NAMES[id_partition*n:id_partition*(n+1)] 
-          for dataset_name in partition_datasets:
+        for dataset_name in partition_datasets:
             print('\t\t\tdataset_name: ', dataset_name)
 
             
@@ -293,9 +293,9 @@ def experiment(mixup, id_partition):
         datasets_dict = read_all_datasets(root_dir, archive_name)
 
         if mixup:
-            tmp_output_directory = root_dir + '/results-test-mixup/' + classifier_name + '/' + archive_name + '/'
+            tmp_output_directory = root_dir + '/results-mixup/' + classifier_name + '/' + archive_name + '/'
         else:
-            tmp_output_directory = root_dir + '/results-test/' + classifier_name + '/' + archive_name + '/'
+            tmp_output_directory = root_dir + '/results/' + classifier_name + '/' + archive_name + '/'
 
         for dataset_name in utils.constants.dataset_names_for_archive[archive_name]:
             print('\t\t\tdataset_name: ', dataset_name)
@@ -320,7 +320,7 @@ def parse_args():
     parser.add_argument(
         '-m','--mixup', default="False", action="store",type=lambda x: (str(x).lower() == 'true'),help='select whether to use mixup or not.')
     
-    parser.add_argument('-p','--partition_id', nargs='+',help='select a list of 5 datasets during training 1 sjob')   
+    parser.add_argument('-p','--partition_id', nargs='+',help='select a list of 7 datasets during training 1 sjob')   
 
     args = parser.parse_args()
 
