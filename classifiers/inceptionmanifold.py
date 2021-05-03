@@ -51,7 +51,7 @@ class InceptionTime(nn.Module):
 
 
         # Decide which layer to mixup
-        j = np.random.randint(4)
+        j = np.random.randint(self.nun_layers)
         # N x T x D -> N x D x T
         x = x.transpose(1,2)
         #print('x_init ',x.shape)
@@ -62,22 +62,22 @@ class InceptionTime(nn.Module):
         for d in range(self.num_layers):
             x = self.inception_modules_list[d](x)
 
-            x = mixup(x, shuffle, lam, 0, j)
+            x = mixup(x, shuffle, lam, d, j)
             #print('x0 ',x.shape)
 
             if self.use_residual and d % 3 == 2:
                 x = self.shortcut_layer_list[d//3](input_res, x)
                 input_res = x
 
-            x = mixup(x, shuffle, lam, 1, j) 
+            #x = mixup(x, shuffle, lam, 1, j) 
             #print('x1 ', x.shape)
 
         x = self.avgpool(x).squeeze(2)
-        x = mixup(x, shuffle, lam, 2, j)
+        #x = mixup(x, shuffle, lam, 2, j)
         #print('x2 ', x.shape)
         x = self.outlinear(x)
-        x = mixup(x, shuffle, lam, 3, j)
-        print('x3', x.shape)
+        #x = mixup(x, shuffle, lam, 3, j)
+        #print('x3', x.shape)
         logprobabilities = F.log_softmax(x, dim=-1)
         return logprobabilities
         #return x
