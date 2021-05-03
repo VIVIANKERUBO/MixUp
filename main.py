@@ -157,8 +157,8 @@ def save_ckp(state, is_best, checkpoint_path, best_model_path):
         # copy that checkpoint file to best path given, best_model_path
         shutil.copyfile(f_path, best_fpath)
 
-def training(logdir,model,test_loss_min_input,checkpoint_path, best_model_path,train_dataloader, test_dataloader, apply_mixup):
-  global test_loss_min
+def training(logdir,model,train_loss_min_input,checkpoint_path, best_model_path,train_dataloader, test_dataloader, apply_mixup):
+  train_loss_min = train_loss_min_input
   device = torch.device("cpu")
   criterion = torch.nn.CrossEntropyLoss(reduction="mean")
   optimizer = Adam(model.parameters(), lr= 0.001)
@@ -200,7 +200,7 @@ def training(logdir,model,test_loss_min_input,checkpoint_path, best_model_path,t
     # create checkpoint variable and add important data
     checkpoint = {
             'epoch': epoch + 1,
-            'test_loss_min': test_loss,
+            'test_loss_min': train_loss,
             'state_dict': model.state_dict(),
             'optimizer': optimizer.state_dict(),
         }
@@ -209,11 +209,11 @@ def training(logdir,model,test_loss_min_input,checkpoint_path, best_model_path,t
     save_ckp(checkpoint, False, checkpoint_path, best_model_path)
         
     ## TODO: save the model if validation loss has decreased
-    if test_loss <= test_loss_min:
+    if train_loss <= train_loss_min:
       #print('Testing loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(test_loss_min,test_loss))
       # save checkpoint as best model
       save_ckp(checkpoint, True, checkpoint_path, best_model_path)
-      test_loss_min = test_loss
+      train_loss_min = train_loss
 
    
 def get_model(modelname, num_classes, input_dim, num_layers, hidden_dims, device):
