@@ -1,11 +1,3 @@
-# resnet model
-import numpy as np
-import time
-
-from utils.utils import save_logs
-from utils.utils import calculate_metrics
-from utils.utils import save_test_duration
-
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data
@@ -15,41 +7,36 @@ __all__ = ['InceptionTime']
 
 class InceptionTime(nn.Module):
 
-    def __init__(self,num_classes, input_dim=1,num_layers=6, hidden_dims=128,use_bias=False, use_residual= True, device=torch.device("cpu")):
+    def __init__(self,num_classes, input_dim=13,num_layers=6, hidden_dims=128,use_bias=False, use_residual= True, device=torch.device("cpu")):
         super(InceptionTime, self).__init__()
         self.modelname = f"InceptionTime_input-dim={input_dim}_num-classes={num_classes}_" \
                          f"hidden-dims={hidden_dims}_num-layers={num_layers}"
-        #self.inlinear = nn.Linear(input_dim, hidden_dims)
         self.num_layers = num_layers
         self.use_residual = use_residual
-        #self.inception_modules_list = [InceptionModule(kernel_size=40, num_filters=hidden_dims,
-                                                       #use_bias=use_bias, device=device) for _ in range(num_layers)]
-        self.inception_modules_list = [InceptionModule(input_dim = input_dim, kernel_size=40, num_filters=hidden_dims//4,
-                                                       use_bias=use_bias, device=device)]
-        #for i in range(num_layers-1):
-        for i in range(num_layers):
-          
+
+        self.inception_modules_list = nn.ModuleList([InceptionModule(input_dim = input_dim,kernel_size=40, num_filters=hidden_dims//4,
+                                                       use_bias=use_bias, device=device)])
+
+        for i in range(num_layers-1):
           self.inception_modules_list.append(InceptionModule(input_dim = hidden_dims, kernel_size=40, num_filters=hidden_dims//4,
                                                        use_bias=use_bias, device=device))
-        #self.inception_modules = nn.Sequential(
-            #*self.inception_modules_list
-        #)
-        self.shortcut_layer_list = [ShortcutLayer(input_dim,hidden_dims,stride = 1, bias = False)]
+        
+        self.shortcut_layer_list = nn.ModuleList([ShortcutLayer(input_dim,hidden_dims,stride = 1, bias = False)])
         for i in range(num_layers//3):
           self.shortcut_layer_list.append(ShortcutLayer(hidden_dims,hidden_dims,stride = 1, bias = False))
+        
         self.avgpool = nn.AdaptiveAvgPool1d(1)
         self.outlinear = nn.Linear(hidden_dims,num_classes)
 
         self.to(device)
 
+
     def forward(self,x):
         # N x T x D -> N x D x T
         x = x.transpose(1,2)
         input_res = x
+        #print(x.shape)
         
-
-        # expand dimensions
-        #x = self.inlinear(x.transpose(1, 2)).transpose(1, 2)
         for d in range(self.num_layers):
             x = self.inception_modules_list[d](x)
 
@@ -83,11 +70,8 @@ class InceptionModule(nn.Module):
             nn.ReLU()
         )
 
-        #if residual:
-            #self.residual_relu = nn.ReLU()
-            #self.shortcut_layer = ShortcutLayer(num_filters, num_filters, stride =1, bias=False)
-
         self.to(device)
+
 
 
     def forward(self, input_tensor):
@@ -98,10 +82,7 @@ class InceptionModule(nn.Module):
         features.append(self.pool_conv(input_tensor.contiguous()))
         features = torch.cat(features, dim=1) 
         features = self.bn_relu(features)
-        #if self.residual:
-            #features = features + input_tensor
-            #features = self.shortcut_layer(input_tensor, out_tensor=features)
-            
+
         return features
 
 class ShortcutLayer(nn.Module):
@@ -120,5 +101,3 @@ class ShortcutLayer(nn.Module):
         x = self.relu(x)
 
         return x
-
-        
