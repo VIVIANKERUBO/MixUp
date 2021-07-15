@@ -31,7 +31,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader, TensorDataset
 
 
-def prepare_data(datasets_dict, dataset_name):
+def prepare_data(datasets_dict, dataset_name, batch_size=64):
     x_train = datasets_dict[dataset_name][0]
     y_train = datasets_dict[dataset_name][1]
     x_test = datasets_dict[dataset_name][2]
@@ -62,15 +62,15 @@ def prepare_data(datasets_dict, dataset_name):
     
     x_train = torch.from_numpy(x_train)
     x_test = torch.from_numpy(x_test)
-    y_train = torch.from_numpy(y_train)
-    y_test = torch.from_numpy(y_test)
+    y_train = torch.from_numpy(y_train) #one-hot encoded
+    y_test = torch.from_numpy(y_test) # one-hot encoding version of y_true
     y_true = torch.from_numpy(y_true)
 
     
     train_dataset = torch.utils.data.TensorDataset(x_train, y_train)
     test_dataset = torch.utils.data.TensorDataset(x_test, y_true, y_test)
-    train_dataloader = DataLoader(train_dataset, batch_size= 64, shuffle=True, num_workers= 0)
-    test_dataloader = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers= 0)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers= 0)
+    test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers= 0)
    
     return train_dataloader, test_dataloader, nb_classes, y_true, enc
     
@@ -114,11 +114,9 @@ def train_epoch(model, optimizer, criterion, dataloader, device , use_mixup):
       x = x.float()
       x, y = x.to(device), y.to(device)
       if use_mixup:
-        #print('Using mixup')
         x, y = mixup_data(x, y, alpha=0.4)
       output = model.forward(x)
-      #loss =  criterion(output, torch.max(y,1)[1])
-      loss =  criterion(output, y)
+      loss =  criterion(output, torch.max(y,1)[1])
       loss.backward()
       optimizer.step()
       losses.append(loss)
@@ -162,19 +160,15 @@ def save_ckp(state, is_best, checkpoint_path, best_model_path):
     else:
         print ("=> Loss did not reduce")
 
-def train(logdir,model,train_loss_min_input,checkpoint_path_train, best_model_path_train,train_dataloader, test_dataloader, apply_mixup):
-  # choice of the device
-  if torch.cuda.is_available():
-    device = "cuda"
-  else:
-    device = "cpu"
-  device = torch.device(device)
+def train(logdir,model,train_loss_min_input,checkpoint_path_train, best_model_path_train,train_dataloader, test_dataloader, device, apply_mixup):
+
   
   criterion = torch.nn.CrossEntropyLoss(reduction="mean")
   optimizer = Adam(model.parameters(), lr=0.001)
   scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, min_lr=0.0001)
   
-  epochs = 1500           
+  #epochs = 1500
+  epochs = 10      
   
   os.makedirs(logdir, exist_ok=True)
   print(f"Logging results to {logdir}")
@@ -222,10 +216,9 @@ def train(logdir,model,train_loss_min_input,checkpoint_path_train, best_model_pa
 def get_model(modelname, num_classes, input_dim, num_layers, hidden_dims, device):
     #modelname = modelname.lower() #make case invariant
     if modelname == "inception":
-        model = inception.InceptionTime(num_classes=num_classes,input_dim=1, num_layers=6, hidden_dims=128).to(device)
-    elif modelname == "nne":
-        
-        model = inception.InceptionTime(num_classes=num_classes,input_dim=1, num_layers=6, hidden_dims=128).to(device)
+        model = inception.InceptionTime(num_classes=num_classes,input_dim=1, num_layers=6, hidden_dims=128, device=device).to(device)
+    elif modelname == "nne":        
+        model = inception.InceptionTime(num_classes=num_classes,input_dim=1, num_layers=6, hidden_dims=128, device=device).to(device)
     else:
         raise ValueError("invalid model argument. choose from 'InceptionTime', or 'NNE'")
 
@@ -234,84 +227,92 @@ def get_model(modelname, num_classes, input_dim, num_layers, hidden_dims, device
 
 ############################################### main
 
-def experiment(mixup):
-    
+def experiment(output_dir, mixup, dtw, bacth_size, archive_name, id_partition=-1, use_gpu=False):
+    # choice of the device
+    if torch.cuda.is_available() and use_gpu:
+      device = "cuda"
+    else:
+      device = "cpu"
+    device = torch.device(device)
+
     root_dir = '/content/gdrive/MyDrive/Inception_time/InceptionTime/archives/UCR_TS_Archive_2015'
    
     # run nb_iter_ iterations of Inception on the whole TSC archive  
     classifier_name = 'inception'
-    archive_name = ARCHIVE_NAMES[0]
+    #archive_name = ARCHIVE_NAMES[0]
     nb_iter_ = 5
  
-    datasets_dict = read_all_datasets(root_dir, archive_name)
-
+    datasets_dict = read_all_datasets(root_dir, archive_name, id_partition)
+    
     for iter in range(nb_iter_):
         print('\t\titer', iter)
 
         trr = ''
         if iter != 0:
             trr = '_itr_' + str(iter)
-
+        if archive_name == "GROUPED_TSC":
+          tmp_classifier_archive = classifier_name + '/TSC' + trr + '/'
+        else:  
+          tmp_classifier_archive = classifier_name + '/' + archive_name + trr + '/'
         if mixup:
-          print('this is mixup directory')
-          tmp_output_directory = root_dir + '/results-mixup/' + classifier_name + '/' + archive_name + trr + '/'
+          if dtw:
+            print('this is mixup directory')
+            tmp_output_directory = output_dir + '/results-mixupdtw/' + tmp_classifier_archive
+          else:
+            print('this is mixup directory')
+            tmp_output_directory = output_dir + '/results-mixup/' + tmp_classifier_archive
         else:
           print('this is not mixup directory')
-          tmp_output_directory = root_dir + '/results/' + classifier_name + '/' + archive_name + trr + '/'
+          tmp_output_directory = output_dir + '/results-noda/' + tmp_classifier_archive
           
-        DATASET_NAMES = utils.constants.dataset_names_for_archive[archive_name]
+        #DATASET_NAMES = utils.constants.dataset_names_for_archive[archive_name]
         
-        for dataset_name in DATASET_NAMES:
+        #for dataset_name in DATASET_NAMES:
+        for dataset_name in datasets_dict.keys():
             print(dataset_name)
             print('\t\t\tdataset_name: ', dataset_name)
 
-            train_dataloader, test_dataloader, nb_classes, y_true, enc = prepare_data(datasets_dict, dataset_name)
+            train_dataloader, test_dataloader, nb_classes, y_true, enc = prepare_data(datasets_dict, dataset_name, bacth_size)
 
             output_directory = tmp_output_directory + dataset_name + '/'
-            
-            
+                        
             temp_output_directory = create_directory(output_directory)
-            
-            
             if temp_output_directory is None:
-                print('Already_done', tmp_output_directory, dataset_name)
+                print('WARNING: ' + output_directory + ' already exists')
                 continue
             
             # check point directories
             checkpoint_path_train = temp_output_directory + "/"+ "current_checkpoint.pt"
             best_model_path_train = temp_output_directory + "/"+  "best_model.pt"
-            print('checkpoint_path_train',checkpoint_path_train)
+            #print('checkpoint_path_train',checkpoint_path_train)
 
-            #model = get_model(modelname = classifier_name,num_classes=nb_classes,input_dim=1, num_layers=6, hidden_dims= 128, device = device)
-            model = inception.InceptionTime(num_classes=nb_classes,input_dim=1, num_layers=6, hidden_dims= 128, device = device)
-            
-            
-            training(output_directory, model, np.inf,checkpoint_path_train,best_model_path_train,train_dataloader,
-            test_dataloader, apply_mixup = mixup)
-
-           
+            model = get_model(modelname = classifier_name, num_classes=nb_classes, input_dim=1, num_layers=6, hidden_dims= 128, device = device)
+            #model = inception.InceptionTime(num_classes=nb_classes,input_dim=1, num_layers=6, hidden_dims= 128, device = device)
+                        
+            train(output_directory, model, np.inf,checkpoint_path_train,best_model_path_train,train_dataloader, test_dataloader, device, apply_mixup = mixup)
+          
             
     #  ensemble of inception time 
     
-    classifier_name = 'nne'
+    #classifier_name = 'nne'
 
-    datasets_dict = read_all_datasets(root_dir, archive_name)
+    #datasets_dict = read_all_datasets(root_dir, archive_name)
 
-    if mixup:
-      tmp_output_directory = root_dir + '/results-mixup/' + classifier_name + '/' + archive_name + '/'
-    else:
-      tmp_output_directory = root_dir + '/results/' + classifier_name + '/' + archive_name + '/'
+    #if mixup:
+    #  tmp_output_directory = root_dir + '/results-mixup/' + classifier_name + '/' + archive_name + '/'
+    #else:
+    #  tmp_output_directory = root_dir + '/results/' + classifier_name + '/' + archive_name + '/'
 
-    for dataset_name in utils.constants.dataset_names_for_archive[archive_name]:
-        print('\t\t\tdataset_name: ', dataset_name)
+    #for dataset_name in utils.constants.dataset_names_for_archive[archive_name]:
+    #    print('\t\t\tdataset_name: ', dataset_name)
 
-        train_dataloader, test_dataloader, nb_classes, y_true, enc = prepare_data(datasets_dict, dataset_name)
+    #    train_dataloader, test_dataloader, nb_classes, y_true, enc = prepare_data(datasets_dict, dataset_name)
 
-        output_directory = tmp_output_directory + dataset_name + '/'
-        from classifiers.nne import NNE
+    #    output_directory = tmp_output_directory + dataset_name + '/'
+    #    from classifiers.nne import NNE
 
-        model = NNE(output_directory)
-        model.fit(test_dataloader, nb_classes,output_directory)
+    #    model = NNE(output_directory)
+    #    model.fit(test_dataloader, nb_classes,output_directory)
         
     
 
@@ -322,22 +323,24 @@ def parse_args():
                                                  'This script trains a model on training dataset'
                                                  'partition, evaluates performance on a validation or evaluation partition'
                                                  'and stores progress and model paths in --logdir.')
+    parser.add_argument('-d','--output_dir', action="store", help='output directory', type=str)  
     parser.add_argument(
-        '-m','--mixup', default="False", action="store",type=lambda x: (str(x).lower() == 'true'),help='select whether to use mixup or not.')
-    #parser.add_argument('-p','--id_partition', nargs='+',help='select a list of 5 datasets during training 1 sjob')   
-
-    #parser.add_argument('-p','--id_partition',type=int)
-
+        '-m','--mixup', default="False", action="store", type=lambda x: (str(x).lower() == 'true'), help='select whether to use mixup or not.')
+    parser.add_argument(
+        '--dtw', default="False", action="store", type=lambda x: (str(x).lower() == 'true'), help='select whether to use dtw-mixup or not.')
+    parser.add_argument(
+        '-b','--batchsize', default=64, action="store", help='batch size', type=int)
+    parser.add_argument('-a','--archive_name', default="TSC", action="store", help='archive name', type=str)   
+    parser.add_argument('-p','--id_partition', default=-1, action="store", help='partition id for grouped datasets', type=int)   
+    parser.add_argument(
+        '-g','--use_gpu', default="False", action="store", type=lambda x: (str(x).lower() == 'true'), help='select whether to use GPU or not.')
+    args = parser.parse_args() 
+    print(args)
     
-    args = parser.parse_args()
-    
-    
-
     return args
         
-if __name__ == "__main__":
-    
+if __name__ == "__main__":    
     args = parse_args()
     
-    #experiment(args.mixup, args.id_partition)
-    experiment(args.mixup)
+    experiment(args.output_dir, args.mixup, args.dtw, args.batchsize, args.archive_name, args.id_partition, args.use_gpu)
+    
