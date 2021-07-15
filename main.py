@@ -30,6 +30,8 @@ from torch import nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader, TensorDataset
 
+from tslearn.metrics import dtw, dtw_path
+
 
 def prepare_data(datasets_dict, dataset_name, batch_size=64):
     x_train = datasets_dict[dataset_name][0]
@@ -75,27 +77,23 @@ def prepare_data(datasets_dict, dataset_name, batch_size=64):
     return train_dataloader, test_dataloader, nb_classes, y_true, enc
     
 
-
-def mixup_data(x, y, alpha=0.4, use_cuda=False, dtw=False):
+def mixup_data(x, y, device, alpha=0.4, apply_dtw=False):
     '''Returns mixed inputs, pairs of targets, and lambda'''
     if alpha > 0:
         lam = np.random.beta(alpha, alpha)
     else:
         lam = 1
-
     batch_size = x.size()[0]
-    if use_cuda:
-        index = torch.randperm(batch_size).cuda()
-    else:
-        index = torch.randperm(batch_size)
-
-    if dtw:
+    index = torch.randperm(batch_size).to(device)
+    
+    if apply_dtw:
       mixed_x = torch.zeros(x.shape)
       for b in range(batch_size):
-        optimal_path, dtw_score = dtw_path(x[b,:],x[index[b],:])
+        optimal_path, dtw_score = dtw_path(x[b,:,0].cpu(),x[index[b],:,0].cpu())
         p,q = map(list, zip(*optimal_path))
-        tmp_mixed_x = lam * x + (1 - lam) * x[index, :]
-        mixed_x[b,:] = torch.stack([torch.mean(tmp_mixed_x[p==i]) for i in np.unique(p)])  
+        tmp_mixed_x = lam * x[b,p,0] + (1 - lam) * x[index[b],q,0]
+        mixed_x[b,:,0] = torch.stack([torch.mean(tmp_mixed_x[p==i]) for i in np.unique(p)])
+        mixed_x = mixed_x.to(device)
     else:
       mixed_x = lam * x + (1 - lam) * x[index, :]
     
@@ -104,7 +102,7 @@ def mixup_data(x, y, alpha=0.4, use_cuda=False, dtw=False):
     return mixed_x, mixed_y 
 
 
-def train_epoch(model, optimizer, criterion, dataloader, device , use_mixup):
+def train_epoch(model, optimizer, criterion, dataloader, device , use_mixup, apply_dtw):
   model.train()
   losses = list()
   with tqdm(enumerate(dataloader), total=len(dataloader), leave=True) as iterator:
@@ -114,7 +112,7 @@ def train_epoch(model, optimizer, criterion, dataloader, device , use_mixup):
       x = x.float()
       x, y = x.to(device), y.to(device)
       if use_mixup:
-        x, y = mixup_data(x, y, alpha=0.4)
+        x, y = mixup_data(x, y, device, alpha=0.4, apply_dtw=apply_dtw)
       output = model.forward(x)
       loss =  criterion(output, torch.max(y,1)[1])
       loss.backward()
@@ -160,16 +158,12 @@ def save_ckp(state, is_best, checkpoint_path, best_model_path):
     else:
         print ("=> Loss did not reduce")
 
-def train(logdir,model,train_loss_min_input,checkpoint_path_train, best_model_path_train,train_dataloader, test_dataloader, device, apply_mixup):
-
+def train(logdir,model,train_loss_min_input,checkpoint_path_train, best_model_path_train,train_dataloader, test_dataloader, epochs, device, apply_mixup, apply_dtw):
   
   criterion = torch.nn.CrossEntropyLoss(reduction="mean")
   optimizer = Adam(model.parameters(), lr=0.001)
   scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, min_lr=0.0001)
-  
-  #epochs = 1500
-  epochs = 10      
-  
+     
   os.makedirs(logdir, exist_ok=True)
   print(f"Logging results to {logdir}")
 
@@ -179,7 +173,7 @@ def train(logdir,model,train_loss_min_input,checkpoint_path_train, best_model_pa
   test_losses = list()
   
   for epoch in range(epochs):
-    train_loss = train_epoch(model, optimizer, criterion,train_dataloader,device,apply_mixup)
+    train_loss = train_epoch(model, optimizer, criterion,train_dataloader,device,apply_mixup,apply_dtw)
     train_loss = train_loss.cpu().detach().numpy()[0] ## -1 ??
     scheduler.step(train_loss)
     test_loss, y_true_, y_pred = test_epoch(model,criterion, test_dataloader,device)
@@ -227,7 +221,7 @@ def get_model(modelname, num_classes, input_dim, num_layers, hidden_dims, device
 
 ############################################### main
 
-def experiment(output_dir, mixup, dtw, bacth_size, archive_name, id_partition=-1, use_gpu=False):
+def experiment(input_dir, output_dir, mixup, dtw, bacth_size, archive_name, id_partition=-1, epochs=1500, use_gpu=False):
     # choice of the device
     if torch.cuda.is_available() and use_gpu:
       device = "cuda"
@@ -235,7 +229,8 @@ def experiment(output_dir, mixup, dtw, bacth_size, archive_name, id_partition=-1
       device = "cpu"
     device = torch.device(device)
 
-    root_dir = '/content/gdrive/MyDrive/Inception_time/InceptionTime/archives/UCR_TS_Archive_2015'
+    root_dir = input_dir
+    #root_dir = '/content/gdrive/MyDrive/Inception_time/InceptionTime/archives/UCR_TS_Archive_2015'
    
     # run nb_iter_ iterations of Inception on the whole TSC archive  
     classifier_name = 'inception'
@@ -286,10 +281,8 @@ def experiment(output_dir, mixup, dtw, bacth_size, archive_name, id_partition=-1
             best_model_path_train = temp_output_directory + "/"+  "best_model.pt"
             #print('checkpoint_path_train',checkpoint_path_train)
 
-            model = get_model(modelname = classifier_name, num_classes=nb_classes, input_dim=1, num_layers=6, hidden_dims= 128, device = device)
-            #model = inception.InceptionTime(num_classes=nb_classes,input_dim=1, num_layers=6, hidden_dims= 128, device = device)
-                        
-            train(output_directory, model, np.inf,checkpoint_path_train,best_model_path_train,train_dataloader, test_dataloader, device, apply_mixup = mixup)
+            model = get_model(modelname = classifier_name, num_classes=nb_classes, input_dim=1, num_layers=6, hidden_dims= 128, device = device)                      
+            train(output_directory, model, np.inf,checkpoint_path_train,best_model_path_train,train_dataloader, test_dataloader, epochs, device, apply_mixup = mixup, apply_dtw=dtw)
           
             
     #  ensemble of inception time 
@@ -323,6 +316,7 @@ def parse_args():
                                                  'This script trains a model on training dataset'
                                                  'partition, evaluates performance on a validation or evaluation partition'
                                                  'and stores progress and model paths in --logdir.')
+    parser.add_argument('-i','--input_dir', action="store", help='input directory', type=str)  
     parser.add_argument('-d','--output_dir', action="store", help='output directory', type=str)  
     parser.add_argument(
         '-m','--mixup', default="False", action="store", type=lambda x: (str(x).lower() == 'true'), help='select whether to use mixup or not.')
@@ -331,7 +325,8 @@ def parse_args():
     parser.add_argument(
         '-b','--batchsize', default=64, action="store", help='batch size', type=int)
     parser.add_argument('-a','--archive_name', default="TSC", action="store", help='archive name', type=str)   
-    parser.add_argument('-p','--id_partition', default=-1, action="store", help='partition id for grouped datasets', type=int)   
+    parser.add_argument('-p','--id_partition', default=-1, action="store", help='partition id for grouped datasets', type=int)
+    parser.add_argument('-e','--epochs', default=1500, action="store", help='partition id for grouped datasets', type=int)   
     parser.add_argument(
         '-g','--use_gpu', default="False", action="store", type=lambda x: (str(x).lower() == 'true'), help='select whether to use GPU or not.')
     args = parser.parse_args() 
@@ -342,5 +337,5 @@ def parse_args():
 if __name__ == "__main__":    
     args = parse_args()
     
-    experiment(args.output_dir, args.mixup, args.dtw, args.batchsize, args.archive_name, args.id_partition, args.use_gpu)
+    experiment(args.input_dir, args.output_dir, args.mixup, args.dtw, args.batchsize, args.archive_name, args.id_partition, args.epochs, args.use_gpu)
     
