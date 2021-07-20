@@ -3,10 +3,6 @@ from utils.constants import UNIVARIATE_DATASET_NAMES as partition_id
 from utils.utils import read_all_datasets
 from utils.utils import transform_labels
 from utils.utils import create_directory
-from utils.utils import run_length_xps
-from utils.utils import generate_results_csv
-from utils.utils import save_test_duration
-from utils.utils import save_logs
 from utils.utils import metrics
 import os
 import shutil
