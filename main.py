@@ -219,11 +219,15 @@ def get_model(modelname, num_classes, input_dim, num_layers, hidden_dims, device
 
 def experiment(input_dir, output_dir, mixup, dtw, bacth_size, archive_name, id_partition=-1, epochs=1500, use_gpu=False):
     # choice of the device
+    print("Torch cuda: ", torch.cuda.is_available())
+    print("use_gpu: ", use_gpu)
     if torch.cuda.is_available() and use_gpu:
       device = "cuda"
     else:
       device = "cpu"
+    print("device-1: ", device)
     device = torch.device(device)
+    print("device-2: ", device)
 
     root_dir = input_dir
     #root_dir = '/content/gdrive/MyDrive/Inception_time/InceptionTime/archives/UCR_TS_Archive_2015'
