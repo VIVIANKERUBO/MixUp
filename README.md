@@ -22,11 +22,13 @@ You should first consider changing the following [line](https://github.com/VIVIA
 After that you should create a folder called archives inside your root_dir, which should contain the folder UCR_TS_Archive_2015. The latter will contain a folder for each dataset called dataset_name, which can be downloaded from this [website](https://www.cs.ucr.edu/~eamonn/time_series_data/).
 
 # Results
+![image](https://user-images.githubusercontent.com/28702547/216042698-a372872d-a2c4-4126-8e5e-9c755bc0ee54.png)
+
 The learning curves for 100% Breizh crops training data
 using experiments without any data augmentation(no mix up), with mix up and manifold
 mix up are shown below. For each experiment, the
 epochs with the least validation loss is highlighted using an orange dotted perpendicular
 line. From the graphs we can see that unlike experiments with no mix up and experiments
 with manifold mix up, mix up curves seem to converge faster.
-
+![image](https://user-images.githubusercontent.com/28702547/216042734-be76355d-f365-4dba-9024-f4347b653a7f.png)
 
